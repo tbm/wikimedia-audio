@@ -209,6 +209,7 @@ def main():
     site = pywikibot.Site("commons", "commons")
     site.login()
     site.get_tokens("csrf")  # preload csrf token
+    upload_dir = pathlib.Path("uploaded")
     for flac in pathlib.Path().glob("*.flac"):
         filename = flac.name
         page = pywikibot.Page(site, title=page_name(filename))
@@ -217,6 +218,8 @@ def main():
             continue
         upload(site, filename)
         add_structured_data(site, filename)
+        upload_dir.mkdir(exist_ok=True)
+        flac.replace(upload_dir / flac)
 
 
 if __name__ == "__main__":
