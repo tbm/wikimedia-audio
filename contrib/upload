@@ -5,6 +5,7 @@ Upload audio files to Wikimedia Commons
 """
 
 import json
+import pathlib
 import string
 
 import mutagen
@@ -208,11 +209,12 @@ def main():
     site = pywikibot.Site("commons", "commons")
     site.login()
     site.get_tokens("csrf")  # preload csrf token
-    filename = "Sw-ke-unga_mkono.flac"
-    page = pywikibot.Page(site, title=page_name(filename))
-    if page.exists():
-        print(f"Page {page_name(filename)} exists already")
-    else:
+    for flac in pathlib.Path().glob("*.flac"):
+        filename = flac.name
+        page = pywikibot.Page(site, title=page_name(filename))
+        if page.exists():
+            print(f"Page {page_name(filename)} exists already")
+            continue
         upload(site, filename)
         add_structured_data(site, filename)
 
