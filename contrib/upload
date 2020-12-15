@@ -4,6 +4,7 @@
 Upload audio files to Wikimedia Commons
 """
 
+import json
 import string
 
 import mutagen
@@ -19,9 +20,9 @@ def encode_phrase(phrase):
     return phrase.replace(" ", "_")
 
 
-def upload(site, filename):
+def get_metadata(filename):
     """
-    Upload file to site using UploadRobot
+    Obtain metadata from a FLAC audio file
     """
 
     meta = mutagen.File(filename)
@@ -30,6 +31,13 @@ def upload(site, filename):
     data["recording_date"] = meta["date"][0]
     data["phrase"] = meta["title"][0].split('"')[1]
     data["url"] = encode_phrase(data["phrase"])
+    return data
+
+
+def upload(site, filename):
+    """
+    Upload file to site using UploadRobot
+    """
 
     template = """=={{int:filedesc}}==
 {{Information
@@ -50,7 +58,7 @@ def upload(site, filename):
 [[Category:Swahili pronunciation]]
 [[Category:Audio recordings by $author]]
 """
-    description = string.Template(template).substitute(data)
+    description = string.Template(template).substitute(get_metadata(filename))
     summary = "Add Swahili pronunciation"
     bot = UploadRobot(
         filename,
@@ -62,14 +70,139 @@ def upload(site, filename):
     bot.run()
 
 
+def add_structured_data(site, filename):
+    """
+    Add structured data to Wikimedia page
+    """
+
+    page = pywikibot.Page(site, title=f"File:{filename}", ns=6)
+    media_identifier = "M{}".format(page.pageid)
+
+    meta = get_metadata(filename)
+    author = meta["author"]
+    phrase = meta["phrase"]
+    recording_date = meta["recording_date"]
+
+    data = {
+        "claims": [  # Creator
+            {
+                "mainsnak": {"property": "P170", "snaktype": "somevalue"},
+                "qualifiers": {
+                    "P2093": [
+                        {
+                            "datavalue": {"type": "string", "value": f"{author}"},
+                            "property": "P2093",
+                            "snaktype": "value",
+                        }
+                    ],
+                },
+                "rank": "normal",
+                "type": "statement",
+            },
+            # Copyright license
+            # Q18199165 = CC-BY-SA-4.0
+            {
+                "mainsnak": {
+                    "datavalue": {
+                        "type": "wikibase-entityid",
+                        "value": {
+                            "entity-type": "item",
+                            "id": "Q18199165",
+                            "numeric-id": 18199165,
+                        },
+                    },
+                    "property": "P275",
+                    "snaktype": "value",
+                },
+                "rank": "normal",
+                "type": "statement",
+            },
+            # Copyright status
+            # Q50423863 = copyrighted
+            {
+                "mainsnak": {
+                    "datavalue": {
+                        "type": "wikibase-entityid",
+                        "value": {
+                            "entity-type": "item",
+                            "id": "Q50423863",
+                            "numeric-id": 50423863,
+                        },
+                    },
+                    "property": "P6216",
+                    "snaktype": "value",
+                },
+                "rank": "normal",
+                "type": "statement",
+            },
+            # Inception
+            {
+                "mainsnak": {
+                    "datavalue": {
+                        "type": "time",
+                        "value": {
+                            "after": 0,
+                            "before": 0,
+                            "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                            "precision": 11,
+                            "time": f"+{recording_date}T00:00:00Z",
+                            "timezone": 0,
+                        },
+                    },
+                    "property": "P571",
+                    "snaktype": "value",
+                },
+                "rank": "normal",
+                "type": "statement",
+            },
+        ],
+        "labels": {
+            "de": {
+                "language": "de",
+                "value": f'Aussprache von Swahili "{phrase}", gesprochen von einer Frau aus Kenia',
+            },
+            "en": {
+                "language": "en",
+                "value": f'Pronunciation of Swahili "{phrase}", spoken by a woman from Kenya',
+            },
+            "sw": {
+                "language": "sw",
+                "value": f'Matamshi ya "{phrase}", iliotamkwa na mwanamke Mkenya',
+            },
+        },
+    }
+
+    csrf_token = site.tokens["csrf"]
+    payload = {
+        "action": "wbeditentity",
+        "format": "json",
+        "id": media_identifier,
+        "data": json.dumps(data, separators=(",", ":")),
+        "token": csrf_token,
+        "summary": "Add structured data: label, creator, copyright & inception",
+        "bot": False,
+    }
+
+    request = site._simple_request(**payload)
+    try:
+        request.submit()
+    except pywikibot.data.api.APIError as error:
+        print("Got an error from the API, the following request were made:")
+        print(request)
+        print("Error: {}".format(error))
+
+
 def main():
     """
     Get files, upload them and add structued data
     """
 
     site = pywikibot.Site("commons", "commons")
+    site.login()
+    site.get_tokens("csrf")  # preload csrf token
     filename = "Sw-ke-nona.flac"
     upload(site, filename)
+    add_structured_data(site, filename)
 
 
 if __name__ == "__main__":
