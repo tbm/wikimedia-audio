@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+
+"""
+Upload audio files to Wikimedia Commons
+"""
+
+import string
+
+import mutagen
+import pywikibot
+from pywikibot.specialbots import UploadRobot
+
+
+def encode_phrase(phrase):
+    """
+    Encode string to URL
+    """
+
+    return phrase.replace(" ", "_")
+
+
+def upload(site, filename):
+    """
+    Upload file to site using UploadRobot
+    """
+
+    meta = mutagen.File(filename)
+    data = {}
+    data["author"] = meta["artist"][0]
+    data["recording_date"] = meta["date"][0]
+    data["phrase"] = meta["title"][0].split('"')[1]
+    data["url"] = encode_phrase(data["phrase"])
+
+    template = """=={{int:filedesc}}==
+{{Information
+|description=
+  {{en|Pronunciation of Swahili "[[wikt:$url#Swahili|$phrase]]", spoken by a woman from Kenya.}}
+  {{de|Aussprache von Swahili "[[wikt:de:$url#Swahili|$phrase]]", gesprochen von einer Frau aus Kenia.}}
+  {{sw|Matamshi ya "[[wikt:sw:$url|$phrase]]", iliotamkwa na mwanamke Mkenya.}}
+|date=$recording_date
+|source={{Private correspondence}}
+|author=$author
+}}
+
+{{subst:OP}}
+
+=={{int:license-header}}==
+{{cc-by-sa-4.0}}
+
+[[Category:Swahili pronunciation]]
+[[Category:Audio recordings by $author]]
+"""
+    description = string.Template(template).substitute(data)
+    summary = "Add Swahili pronunciation"
+    bot = UploadRobot(
+        filename,
+        description=description,
+        summary=summary,
+        keep_filename=True,
+        target_site=site,
+    )
+    bot.run()
+
+
+def main():
+    """
+    Get files, upload them and add structued data
+    """
+
+    site = pywikibot.Site("commons", "commons")
+    filename = "Sw-ke-nona.flac"
+    upload(site, filename)
+
+
+if __name__ == "__main__":
+    main()
