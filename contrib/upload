@@ -213,7 +213,7 @@ def main():
         add_structured_data(site, filename)
         upload_dir.mkdir(exist_ok=True)
         flac.replace(upload_dir / flac)
-        delay = random.randint(60, 3*60)
+        delay = random.randint(60, 3 * 60)
         print(f"Sleeping for {delay} seconds")
         time.sleep(delay)
 
