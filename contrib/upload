@@ -15,14 +15,6 @@ import pywikibot
 from pywikibot.specialbots import UploadRobot
 
 
-def encode_phrase(phrase):
-    """
-    Encode string to URL
-    """
-
-    return phrase.replace(" ", "_")
-
-
 def get_metadata(filename):
     """
     Obtain metadata from a FLAC audio file
@@ -33,7 +25,6 @@ def get_metadata(filename):
     data["author"] = meta["artist"][0]
     data["recording_date"] = meta["date"][0]
     data["phrase"] = meta["title"][0].split('"')[1]
-    data["url"] = encode_phrase(data["phrase"])
     return data
 
 
@@ -53,9 +44,9 @@ def upload(site, filename):
     template = """=={{int:filedesc}}==
 {{Information
 |description=
-  {{en|Pronunciation of Swahili "[[wikt:$url#Swahili|$phrase]]", spoken by a woman from Kenya.}}
-  {{de|Aussprache von Swahili "[[wikt:de:$url#Swahili|$phrase]]", gesprochen von einer Frau aus Kenia.}}
-  {{sw|Matamshi ya "[[wikt:sw:$url|$phrase]]", iliotamkwa na mwanamke Mkenya.}}
+  {{en|Pronunciation of Swahili "$phrase", spoken by a woman from Kenya.}}
+  {{de|Aussprache von Swahili "$phrase", gesprochen von einer Frau aus Kenia.}}
+  {{sw|Matamshi ya "$phrase", iliotamkwa na mwanamke Mkenya.}}
 |date=$recording_date
 |source={{Private correspondence}}
 |author=$author
