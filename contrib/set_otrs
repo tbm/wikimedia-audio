@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+
+"""
+Set OTRS as structured data
+"""
+
+import json
+import re
+import sys
+
+import pywikibot
+
+
+RE_OTRS = r"\bpermission\s*=\s*{{\s*PermissionOTRS\s*\|\s*id\s*=\s*(\d+)"
+
+
+def get_structured_data_otrs(site, mid):
+    """
+    Get OTRS from structured data of Wikimedia page
+    """
+
+    request = site._simple_request(action="wbgetentities", ids=mid)
+    raw = request.submit()
+    if raw.get("entities").get(mid).get("pageid"):
+        existing_data = raw.get("entities").get(mid)
+        if "statements" in existing_data and "P6305" in existing_data["statements"]:
+            otrs = existing_data["statements"]["P6305"][0]
+            return otrs["mainsnak"]["datavalue"]["value"]
+    return None
+
+
+def set_structured_data_otrs(site, mid, otrs):
+    """
+    Set OTRS to structured data of Wikimedia page
+    """
+
+    data = {
+        "claims": [
+            # Wikimedia OTRS ticket number
+            {
+                "mainsnak": {
+                    "datavalue": {
+                        "type": "string",
+                        "value": f"{otrs}",
+                    },
+                    "property": "P6305",
+                    "snaktype": "value",
+                },
+                "rank": "normal",
+                "type": "statement",
+            },
+        ],
+    }
+
+    csrf_token = site.tokens["csrf"]
+    payload = {
+        "action": "wbeditentity",
+        "format": "json",
+        "id": mid,
+        "data": json.dumps(data, separators=(",", ":")),
+        "token": csrf_token,
+        "summary": "Add structured data: OTRS",
+        "bot": False,
+    }
+
+    request = site._simple_request(**payload)
+    try:
+        request.submit()
+    except pywikibot.data.api.APIError as error:
+        print("Got an error from the API, the following request were made:")
+        print(request)
+        print("Error: {}".format(error))
+
+
+def get_page_otrs(page):
+    """
+    Get OTRS from PermissionOTRS string
+    """
+
+    match = re.search(RE_OTRS, page.text, re.IGNORECASE)
+    if match:
+        return match.groups(1)[0]
+    return None
+
+
+def set_otrs(site, page_title):
+    """
+    Set OTRS structured data from PermissionOTRS (if it's not there already)
+    """
+
+    page = pywikibot.Page(site, title=page_title, ns=6)
+    mid = "M{}".format(page.pageid)
+    otrs = get_structured_data_otrs(site, mid)
+    if otrs:
+        print(f"{page_title} has OTRS structured data already")
+        return
+    otrs = get_page_otrs(page)
+    if not otrs:
+        print(f"Cannot obtain OTRS from page {page_title}")
+        return
+    print(f"Setting OTRS for page {page_title} to {otrs}")
+    set_structured_data_otrs(site, mid, otrs)
+
+
+def main():
+    """
+    Main function to set OTRS
+    """
+
+    if len(sys.argv) < 2:
+        print("Requires page title as argument")
+        sys.exit(1)
+    page_title = sys.argv[1]
+
+    site = pywikibot.Site("commons", "commons")
+    site.login()
+    site.get_tokens("csrf")  # preload csrf token
+    set_otrs(site, page_title)
+
+
+if __name__ == "__main__":
+    main()
