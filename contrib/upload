@@ -86,7 +86,8 @@ def add_structured_data(site, filename):
     recording_date = meta["recording_date"]
 
     data = {
-        "claims": [  # Creator
+        "claims": [
+            # Creator
             {
                 "mainsnak": {"property": "P170", "snaktype": "somevalue"},
                 "qualifiers": {
