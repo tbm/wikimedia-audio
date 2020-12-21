@@ -197,7 +197,7 @@ def add_structured_data(site, filename):
 
 def main():
     """
-    Get files, upload them and add structued data
+    Get files, upload them and add structured data
     """
 
     site = pywikibot.Site("commons", "commons")
