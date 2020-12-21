@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+
+"""
+Get list of files where OTRS approval is missing
+"""
+
+import os
+import re
+
+from mwclient import Site
+
+RE_OTRS = r"\bpermission\s*=\s*{{\s*PermissionOTRS\s*\|\s*id\s*=\s*(\d+)"
+RE_OTRS_PENDING = r"{{\s*OTRS pending"
+
+
+def is_page_otrs_pending(page):
+    """
+    Check if OTRS is pending
+    """
+
+    match = re.search(RE_OTRS_PENDING, page.text(), re.IGNORECASE)
+    if match:
+        return True
+    return False
+
+
+def get_page_otrs(page):
+    """
+    Get OTRS from PermissionOTRS string
+    """
+
+    match = re.search(RE_OTRS, page.text(), re.IGNORECASE)
+    if match:
+        return match.groups(1)[0]
+    return None
+
+
+def main():
+    """
+    Main function to get list of pages needing OTRS approval
+    """
+
+    site = Site("commons.wikimedia.org")
+    category = site.categories["Audio recordings by Waithera Were"]
+    for page in category:
+        page_name = os.path.basename(page.imageinfo["descriptionurl"])
+        otrs = get_page_otrs(page)
+        if not otrs:
+            if is_page_otrs_pending(page):
+                pass
+                print(page_name)
+            else:
+                print(f"Can't establish OTRS status for page {page_name}")
+
+
+if __name__ == "__main__":
+    main()
