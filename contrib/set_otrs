@@ -5,13 +5,11 @@ Set OTRS as structured data
 """
 
 import json
-import re
 import sys
 
 import pywikibot
 
-
-RE_OTRS = r"\bpermission\s*=\s*{{\s*PermissionOTRS\s*\|\s*id\s*=\s*(\d+)"
+import otrs
 
 
 def get_structured_data_otrs(site, mid):
@@ -24,12 +22,12 @@ def get_structured_data_otrs(site, mid):
     if raw.get("entities").get(mid).get("pageid"):
         existing_data = raw.get("entities").get(mid)
         if "statements" in existing_data and "P6305" in existing_data["statements"]:
-            otrs = existing_data["statements"]["P6305"][0]
-            return otrs["mainsnak"]["datavalue"]["value"]
+            otrs_data = existing_data["statements"]["P6305"][0]
+            return otrs_data["mainsnak"]["datavalue"]["value"]
     return None
 
 
-def set_structured_data_otrs(site, mid, otrs):
+def set_structured_data_otrs(site, mid, otrs_id):
     """
     Set OTRS to structured data of Wikimedia page
     """
@@ -41,7 +39,7 @@ def set_structured_data_otrs(site, mid, otrs):
                 "mainsnak": {
                     "datavalue": {
                         "type": "string",
-                        "value": f"{otrs}",
+                        "value": f"{otrs_id}",
                     },
                     "property": "P6305",
                     "snaktype": "value",
@@ -72,17 +70,6 @@ def set_structured_data_otrs(site, mid, otrs):
         print("Error: {}".format(error))
 
 
-def get_page_otrs(page):
-    """
-    Get OTRS from PermissionOTRS string
-    """
-
-    match = re.search(RE_OTRS, page.text, re.IGNORECASE)
-    if match:
-        return match.groups(1)[0]
-    return None
-
-
 def set_otrs(site, page_title):
     """
     Set OTRS structured data from PermissionOTRS (if it's not there already)
@@ -90,15 +77,18 @@ def set_otrs(site, page_title):
 
     page = pywikibot.Page(site, title=page_title, ns=6)
     mid = "M{}".format(page.pageid)
-    otrs = get_structured_data_otrs(site, mid)
-    if otrs:
+    otrs_id = get_structured_data_otrs(site, mid)
+    if otrs_id:
         print(f"{page_title} has OTRS structured data already")
         return
-    otrs = get_page_otrs(page)
-    if not otrs:
-        print(f"Cannot obtain OTRS from page {page_title}")
+    otrs_id = otrs.get_otrs(page.text)
+    if not otrs_id:
+        if otrs.is_otrs_pending(page.text):
+            print(f"OTRS approval for page {page_title} is still pending")
+        else:
+            print(f"Cannot obtain OTRS from page {page_title}")
         return
-    print(f"Setting OTRS for page {page_title} to {otrs}")
+    print(f"Setting OTRS for page {page_title} to {otrs_id}")
     set_structured_data_otrs(site, mid, otrs)
 
 
