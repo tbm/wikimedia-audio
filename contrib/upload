@@ -246,7 +246,7 @@ def add_structured_data(site, filename):
         "id": media_identifier,
         "data": json.dumps(data, separators=(",", ":")),
         "token": csrf_token,
-        "summary": "Add structured data: label, creator, copyright & inception",
+        "summary": "Add structured data",
         "bot": False,
     }
 
