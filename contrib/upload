@@ -250,7 +250,7 @@ def add_structured_data(site, filename):
         "bot": False,
     }
 
-    request = site._simple_request(**payload)
+    request = site.simple_request(**payload)
     try:
         request.submit()
     except pywikibot.data.api.APIError as error:

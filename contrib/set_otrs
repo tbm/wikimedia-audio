@@ -17,7 +17,7 @@ def get_structured_data_otrs(site, mid):
     Get OTRS from structured data of Wikimedia page
     """
 
-    request = site._simple_request(action="wbgetentities", ids=mid)
+    request = site.simple_request(action="wbgetentities", ids=mid)
     raw = request.submit()
     if raw.get("entities").get(mid).get("pageid"):
         existing_data = raw.get("entities").get(mid)
@@ -61,7 +61,7 @@ def set_structured_data_otrs(site, mid, otrs_id):
         "bot": False,
     }
 
-    request = site._simple_request(**payload)
+    request = site.simple_request(**payload)
     try:
         request.submit()
     except pywikibot.data.api.APIError as error:
