@@ -222,6 +222,24 @@ def add_structured_data(site, filename):
                 "rank": "normal",
                 "type": "statement",
             },
+            # captured with (P4082)
+            # Q111799208 = Røde NT-USB Mini
+            {
+                "mainsnak": {
+                    "datavalue": {
+                        "type": "wikibase-entityid",
+                        "value": {
+                            "entity-type": "item",
+                            "id": "Q111799208",
+                            "numeric-id": 111799208,
+                        },
+                    },
+                    "property": "P4082",
+                    "snaktype": "value",
+                },
+                "rank": "normal",
+                "type": "statement",
+            },
         ],
         "labels": {
             "de": {
