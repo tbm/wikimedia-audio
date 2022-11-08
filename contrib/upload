@@ -59,6 +59,7 @@ def upload(site, filename):
 
 [[Category:Swahili pronunciation]]
 [[Category:Audio recordings by $author]]
+{{Supported by Wikimedia UK}}
 """
     description = string.Template(template).substitute(get_metadata(filename))
     summary = "Add Swahili pronunciation"
