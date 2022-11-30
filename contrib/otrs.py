@@ -4,8 +4,8 @@ OTRS related functions
 
 import re
 
-RE_OTRS = r"\bpermission\s*=\s*{{\s*PermissionOTRS\s*\|\s*id\s*=\s*(\d+)"
-RE_OTRS_PENDING = r"{{\s*OTRS pending"
+RE_OTRS = r"\bpermission\s*=\s*{{\s*PermissionTicket\s*\|\s*id\s*=\s*(\d+)"
+RE_OTRS_PENDING = r"{{\s*Permission pending"
 
 
 def is_otrs_pending(text):
