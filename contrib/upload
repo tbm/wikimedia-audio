@@ -33,7 +33,7 @@ def page_name(filename):
     Return page name for filename
     """
 
-    return f"File:{filename}"
+    return "File:" + filename
 
 
 def upload(site, filename):
@@ -79,7 +79,7 @@ def add_structured_data(site, filename):
     """
 
     page = pywikibot.Page(site, title=page_name(filename), ns=6)
-    media_identifier = "M{}".format(page.pageid)
+    media_identifier = "M" + str(page.pageid)
 
     meta = get_metadata(filename)
     author = meta["author"]
@@ -272,10 +272,10 @@ def add_structured_data(site, filename):
     request = site.simple_request(**payload)
     try:
         request.submit()
-    except pywikibot.data.api.APIError as error:
+    except pywikibot.exceptions.APIError as error:
         print("Got an error from the API, the following request were made:")
         print(request)
-        print("Error: {}".format(error))
+        print("Error:", error)
 
 
 def main():
