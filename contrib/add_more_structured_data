@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+
+"""
+Add additional structured data if it doesn't exist already
+"""
+
+import json
+import pathlib
+import uuid
+
+import mutagen
+import pywikibot
+
+
+def get_metadata(filename):
+    """
+    Obtain metadata from a FLAC audio file
+    """
+
+    meta = mutagen.File(filename)
+    data = {}
+    data["author"] = meta["artist"][0]
+    data["recording_date"] = meta["date"][0]
+    data["phrase"] = meta["title"][0].split('"')[1]
+    return data
+
+
+def page_name(filename):
+    """
+    Return page name for filename
+    """
+
+    return "File:" + filename
+
+
+def add_structured_data(site, media_identifier, existing, meta):
+    """
+    Add structured data if it doesn't exist already
+    """
+
+    claims = [
+        {
+            # language of work (P407)
+            # Q7838 = Swahili
+            "id": media_identifier + "$" + str(uuid.uuid4()),
+            "mainsnak": {
+                "datavalue": {
+                    "type": "wikibase-entityid",
+                    "value": {
+                        "entity-type": "item",
+                        "id": "Q7838",
+                        "numeric-id": 7838,
+                    },
+                },
+                "property": "P407",
+                "snaktype": "value",
+            },
+            "rank": "normal",
+            "type": "statement",
+        },
+        {
+            # audio transcription (P9533)
+            "id": media_identifier + "$" + str(uuid.uuid4()),
+            "mainsnak": {
+                "datavalue": {
+                    "type": "monolingualtext",
+                    "value": {
+                        "language": "sw",
+                        "text": meta["phrase"],
+                    },
+                },
+                "property": "P9533",
+                "snaktype": "value",
+            },
+            "rank": "normal",
+            "type": "statement",
+        },
+        {
+            # media type (P1163)
+            "id": media_identifier + "$" + str(uuid.uuid4()),
+            "mainsnak": {
+                "datavalue": {
+                    "type": "string",
+                    "value": "audio/flac",
+                },
+                "property": "P1163",
+                "snaktype": "value",
+            },
+            "rank": "normal",
+            "type": "statement",
+        },
+    ]
+
+    for claim in claims:
+        if claim["mainsnak"]["property"] in existing:
+            continue
+        payload = {
+            "action": "wbsetclaim",
+            "format": "json",
+            "id": media_identifier,
+            "claim": json.dumps(claim, separators=(",", ":")),
+            "token": site.tokens["csrf"],
+            # "summary": "Add structured data: language of work",
+            "bot": False,
+        }
+
+        request = site.simple_request(**payload)
+        try:
+            request.submit()
+        except pywikibot.exceptions.APIError as error:
+            print("Got an error from the API, the following request were made:")
+            print(request)
+            print("Error:", error)
+
+
+def main():
+    """
+    Get files, upload them and add structured data
+    """
+
+    site = pywikibot.Site("commons", "commons")
+    site.login()
+    site.get_tokens("csrf")  # preload csrf token
+    for flac in pathlib.Path().glob("*.flac"):
+        filename = flac.name
+        page = pywikibot.Page(site, title=page_name(filename))
+        if not page.exists():
+            print(f"Page {page_name(filename)} does not exist")
+            continue
+        print(f"Processing {filename}")
+        page = pywikibot.Page(site, title=page_name(filename), ns=6)
+        media_identifier = "M" + str(page.pageid)
+        meta = get_metadata(filename)
+        request = site.simple_request(action="wbgetentities", ids=media_identifier)
+        raw = request.submit()
+        claims = raw.get("entities").get(media_identifier)["statements"]
+        add_structured_data(site, media_identifier, claims, meta)
+
+
+if __name__ == "__main__":
+    main()
