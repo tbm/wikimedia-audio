@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+
+"""
+Overwrite audio file on Wikimedia Commons, update page and
+add additional structured data.
+"""
+
+import json
+import pathlib
+import re
+import uuid
+
+import mutagen
+import pywikibot
+from pywikibot.specialbots import UploadRobot
+
+
+def get_metadata(filename):
+    """
+    Obtain metadata from a FLAC audio file
+    """
+
+    meta = mutagen.File(filename)
+    data = {}
+    data["author"] = meta["artist"][0]
+    data["recording_date"] = meta["date"][0]
+    data["phrase"] = meta["title"][0].split('"')[1]
+    return data
+
+
+def page_name(filename):
+    """
+    Return page name for filename
+    """
+
+    return "File:" + filename
+
+
+def reupload(site, page, filename):
+    """
+    Re-upload file to site using UploadRobot
+    """
+
+    summary = "Add better audio recording"
+    bot = UploadRobot(
+        filename,
+        description="_",  # we're overwriting so the description is there already
+        verify_description=False,
+        ignore_warning=["exists"],
+        summary=summary,
+        keep_filename=True,
+        target_site=site,
+    )
+    bot.run()
+
+    recording_date = get_metadata(filename)["recording_date"]
+    page.text = re.sub(r"date=\d{4}-\d{2}-\d{2}", f"date={recording_date}", page.text)
+    page.save("Update date of recording", minor=False)
+
+    credit = "{{Supported by Wikimedia UK}}"
+    if credit not in page.text:
+        page.text = page.text + "\n" + credit
+        page.save("Add credits", minor=False)
+
+
+def add_structured_data(site, filename):
+    """
+    Add structured data to Wikimedia page
+    """
+
+    page = pywikibot.Page(site, title=page_name(filename), ns=6)
+    media_identifier = "M" + str(page.pageid)
+
+    meta = get_metadata(filename)
+    recording_date = meta["recording_date"]
+
+    request = site.simple_request(action="wbgetentities", ids=media_identifier)
+    raw = request.submit()
+    existing = raw.get("entities").get(media_identifier)["statements"]
+
+    claims = [
+        {
+            # Inception
+            "id": existing["P571"][0]["id"],
+            "mainsnak": {
+                "datavalue": {
+                    "type": "time",
+                    "value": {
+                        "after": 0,
+                        "before": 0,
+                        "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                        "precision": 11,
+                        "time": f"+{recording_date}T00:00:00Z",
+                        "timezone": 0,
+                    },
+                },
+                "property": "P571",
+                "snaktype": "value",
+            },
+            "rank": "normal",
+            "type": "statement",
+        },
+        {
+            # captured with (P4082)
+            # Q111799208 = Røde NT-USB Mini
+            "id": media_identifier + "$" + str(uuid.uuid4()),
+            "mainsnak": {
+                "datavalue": {
+                    "type": "wikibase-entityid",
+                    "value": {
+                        "entity-type": "item",
+                        "id": "Q111799208",
+                        "numeric-id": 111799208,
+                    },
+                },
+                "property": "P4082",
+                "snaktype": "value",
+            },
+            "rank": "normal",
+            "type": "statement",
+        },
+    ]
+
+    for claim in claims:
+        payload = {
+            "action": "wbsetclaim",
+            "format": "json",
+            "id": media_identifier,
+            "claim": json.dumps(claim, separators=(",", ":")),
+            "token": site.tokens["csrf"],
+            "bot": False,
+        }
+
+        request = site.simple_request(**payload)
+        try:
+            request.submit()
+        except pywikibot.exceptions.APIError as error:
+            print("Got an error from the API, the following request were made:")
+            print(request)
+            print("Error:", error)
+
+
+def main():
+    """
+    Get files, upload them and add structured data
+    """
+
+    site = pywikibot.Site("commons", "commons")
+    site.login()
+    site.get_tokens("csrf")  # preload csrf token
+    upload_dir = pathlib.Path("uploaded")
+    for flac in pathlib.Path().glob("*.flac"):
+        filename = flac.name
+        page = pywikibot.Page(site, title=page_name(filename))
+        if not page.exists():
+            print(f"Page {page_name(filename)} does not exist")
+            continue
+        print(f"Processing {filename}")
+        reupload(site, page, filename)
+        add_structured_data(site, filename)
+        upload_dir.mkdir(exist_ok=True)
+        flac.replace(upload_dir / flac)
+
+
+if __name__ == "__main__":
+    main()
