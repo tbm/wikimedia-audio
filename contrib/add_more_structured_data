@@ -121,7 +121,7 @@ def main():
     site = pywikibot.Site("commons", "commons")
     site.login()
     site.get_tokens("csrf")  # preload csrf token
-    for flac in pathlib.Path().glob("*.flac"):
+    for flac in sorted(pathlib.Path().glob("*.flac")):
         filename = flac.name
         page = pywikibot.Page(site, title=page_name(filename))
         if not page.exists():
